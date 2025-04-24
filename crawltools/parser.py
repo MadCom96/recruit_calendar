@@ -22,17 +22,7 @@ class Parser:
             class_list = item.get("class", [])
             is_favorite = "favorite" in class_list and "no-favorite" not in class_list
 
-            # 날짜 추출 (day 속성 이용)
-            # 20250402 → 2025-04-02 형식으로 변환
-            raw_day = item.get("day")
-            date = datetime.strptime(raw_day, "%Y%m%d").strftime("%Y-%m-%d") if raw_day else "날짜 없음"
-            
             if not is_favorite:
-                continue
-
-            if employment_id in results:
-                if results[employment_id]["date"] < date:
-                    results[employment_id]["date"] = date
                 continue
 
             # 회사 이름 추출
@@ -46,8 +36,6 @@ class Parser:
             results[employment_id] = {
                 "company_name": company_name,
                 "link": link,
-                "is_favorite": is_favorite,
-                "date": date
             }
 
         print(results)
@@ -55,7 +43,20 @@ class Parser:
 
     @staticmethod
     def extract_exp_time(html):
+        """
+        HTML에서 마감 시간과 subtitle 텍스트를 추출합니다.
+
+        Args:
+            html (str): HTML 소스 코드.
+
+        Returns:
+            tuple: (마감 시간 datetime 객체, subtitle 텍스트) 또는 (None, None) 반환.
+        """
         soup = BeautifulSoup(html, "lxml")
+
+        # subtitle 텍스트 추출
+        subtitle_tag = soup.find("h1", class_="header4 text-gray-900 mb-[4px]")
+        subtitle = subtitle_tag.get_text(strip=True) if subtitle_tag else None
 
         # .body5 클래스 div 모두 검색
         time_divs = soup.find_all("div", class_="body5")
@@ -68,7 +69,7 @@ class Parser:
                         end_text = spans[i + 1].get_text(strip=True)  # "2025년 4월 28일 17:00"
                         # 문자열을 datetime 객체로 변환
                         exp_dt = datetime.strptime(end_text, "%Y년 %m월 %d일 %H:%M")
-                        return exp_dt
+                        return exp_dt, subtitle
                     except Exception as e:
                         print(f"[ERROR] 날짜 파싱 실패: {e}")
                         return None

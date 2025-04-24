@@ -158,6 +158,6 @@ def create_events(service, calendar_id, posts, ids, base_url):
         key = ids.pop()
         value = posts[key]
         if value["date"]:  # 날짜가 있는 경우에만 이벤트 생성
-            create_event(service, calendar_id, value["company_name"], value["date"], f'{base_url}/{key}')
+            create_event(service, calendar_id, value["company_name"], value["date"], f'{value["subtitle"]}\n{base_url}/{key}')
 
     print("✅ 모든 새 공고 일정 등록 완료!")

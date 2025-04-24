@@ -20,6 +20,15 @@ class Crawler:
         # HTML 파싱
         results = Parser.calendar(html)
 
+        # 다음 달 HTML 가져오기
+        html = self.fetcher.selenium_next_page()
+
+        # HTML 파싱
+        next_results = Parser.calendar(html)
+
+        for id, nresult in next_results.items():
+            results[id] = nresult
+
         print(f"파싱 결과: ")
         print(*results.values(), sep="\n")
         return results
@@ -27,4 +36,6 @@ class Crawler:
     def add_times(self, posts, ids):
         for id in ids:
             html = self.fetcher.fetch_with_selenium(f"{START_URL}/{id}")
-            posts[id]["date"] = Parser.extract_exp_time(html)
+            ext = Parser.extract_exp_time(html)
+            posts[id]["date"] = ext[0]
+            posts[id]["subtitle"] = ext[1]

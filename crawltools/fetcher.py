@@ -1,6 +1,7 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium import webdriver
 import time
 import atexit
@@ -68,4 +69,35 @@ class Fetcher:
 
         except Exception as e:
             print(f"[ERROR] 카카오 로그인 실패: {e}")
+            return None
+
+    def selenium_next_page(self):
+        """
+        셀레니움으로 다음 페이지 버튼을 클릭하고 HTML을 가져옵니다.
+
+        Returns:
+            str: 다음 페이지의 HTML 소스.
+        """
+        try:
+            # 다음 페이지 버튼 찾기
+            next_button = self.driver.find_element(By.CSS_SELECTOR, "div.icon-wrapper img[ng-click='addMonth(1)']")
+            
+            # 버튼 클릭
+            next_button.click()
+            print("[INFO] 다음 페이지 버튼 클릭 완료")
+
+            # 페이지 로드 대기
+            time.sleep(5)
+
+            # 현재 페이지의 HTML 반환
+            return self.driver.page_source
+        except NoSuchElementException:
+            
+            print("[ERROR] 다음 페이지 버튼을 찾을 수 없습니다.")
+            return None
+        except TimeoutException:
+            print("[ERROR] 페이지 로드가 시간 초과되었습니다.")
+            return None
+        except Exception as e:
+            print(f"[ERROR] 다음 페이지로 이동 중 오류 발생: {e}")
             return None
