@@ -35,6 +35,61 @@ class Fetcher:
             print(f"[ERROR] 페이지 로딩 실패: {e}")
             return None
 
+    def selenium_with_login(self, url, user_id, user_pw):
+        """
+        일반 로그인 기능을 수행하고 HTML 소스를 반환합니다.
+
+        Args:
+            url (str): 로그인 페이지 URL.
+            user_id (str): 사용자 ID.
+            user_pw (str): 사용자 비밀번호.
+
+        Returns:
+            str: 로그인 후의 HTML 소스.
+        """
+        try:
+            # 로그인 페이지로 이동
+            self.driver.get(url)
+            time.sleep(2)
+
+            # 1. 로그인 버튼 클릭
+            login_button = self.driver.find_element(By.CSS_SELECTOR, ".sign-in-button.btn")
+            login_button.click()
+            print("[INFO] 로그인 버튼 클릭 완료")
+            time.sleep(2)  # 모달 창 로드 대기
+
+            # 2. 모달 창 찾기
+            modal = self.driver.find_element(By.CSS_SELECTOR, "div.sign-modal-container")
+            print("[INFO] 모달 창 찾기 완료")
+
+            # 3. 모달 창 내부의 아이디 입력
+            id_input = modal.find_element(By.CSS_SELECTOR, "input[placeholder='이메일 주소를 입력해 주세요']")
+            id_input.send_keys(user_id)
+            print("[INFO] 아이디 입력 완료")
+
+            # 4. 모달 창 내부의 비밀번호 입력
+            pw_input = modal.find_element(By.CSS_SELECTOR, "input[placeholder='비밀번호를 입력해 주세요']")
+            pw_input.send_keys(user_pw)
+            print("[INFO] 비밀번호 입력 완료")
+
+            # 5. 모달 창 내부의 로그인 버튼 클릭
+            modal_login_button = modal.find_element(By.CSS_SELECTOR, "a.sign-in-btn[ng-click='signin()']")
+            modal_login_button.click()
+            print("[INFO] 로그인 버튼 클릭 완료")
+
+            # 로그인 완료 대기
+            time.sleep(10)
+
+            # 로그인 후 HTML 반환
+            return self.driver.page_source
+
+        except NoSuchElementException as e:
+            print(f"[ERROR] 로그인 요소를 찾을 수 없습니다: {e}")
+            return None
+        except Exception as e:
+            print(f"[ERROR] 일반 로그인 중 오류 발생: {e}")
+            return None
+
     def selenium_with_kakao_login(self, url, kakao_id, kakao_pw):
         try:
             self.driver.get(url)
