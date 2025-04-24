@@ -12,6 +12,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Selenium chromedriver
+chromedriver/*
+
 # Google api
 credentials.json
 token.json
