@@ -11,15 +11,43 @@ from googleapiclient.discovery import build
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 
+def get_new_credentials(credentials_path, scopes, token_path):
+    """
+    새로운 인증 흐름을 통해 Google Credentials를 발급받고 저장합니다.
+
+    Args:
+        credentials_path (str): credentials.json 파일 경로.
+        scopes (list): 필요한 Google API 스코프 목록.
+        token_path (str): 발급받은 토큰을 저장할 token.json 파일 경로.
+
+    Returns:
+        google.oauth2.credentials.Credentials: 새로 발급받은 인증 객체.
+    """
+    try:
+        flow = InstalledAppFlow.from_client_secrets_file(
+            credentials_path, scopes)
+        creds = flow.run_local_server(port=0)
+        
+        # 인증 정보를 token.json 파일에 저장
+        # cred_folder는 호출하는 곳에서 이미 존재하거나 생성될 것이므로 여기서는 os.makedirs 생략
+        with open(token_path, 'w') as token:
+            token.write(creds.to_json())
+        print(f"✅ 새 인증 정보가 '{token_path}'에 저장됨.")
+        return creds
+    except Exception as e:
+        print(f"🚨 새로운 인증 과정 중 오류 발생: {e}")
+        raise # 인증 실패 시 프로그램 중단
+
+
 def google_calendar_login():
     """
     Google Calendar API에 인증하고 서비스 객체를 반환합니다.
+    Refresh 토큰 만료 시 token.json을 삭제하고 새로 인증을 시도합니다.
 
     Returns:
         googleapiclient.discovery.Resource: Google Calendar API 서비스 객체.
     """
     creds = None
-    # credentials.json과 token.json의 경로를 google/cred/로 설정
     cred_folder = 'google/cred/'
     token_path = os.path.join(cred_folder, 'token.json')
     credentials_path = os.path.join(cred_folder, 'credentials.json')
@@ -30,15 +58,18 @@ def google_calendar_login():
     # 인증이 없거나 만료된 경우 새로 인증
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())  # 토큰 갱신
+            # 토큰 갱신 시도
+            try:
+                creds.refresh(Request())  # 토큰 갱신
+            except Exception as e:
+                print("Refresh 토큰이 무효화되었거나 만료되었을 수 있습니다. 새로 인증을 시도합니다.")
+                # token.json 파일을 삭제하고 새로 인증을 받도록 get_new_credentials 호출
+                if os.path.exists(token_path):
+                    os.remove(token_path)
+                creds = get_new_credentials(credentials_path, SCOPES, token_path)
         else:
-            # 새로 인증을 수행
-            flow = InstalledAppFlow.from_client_secrets_file(
-                credentials_path, SCOPES)
-            creds = flow.run_local_server(port=0)
-        # 인증 정보를 token.json 파일에 저장
-        with open(token_path, 'w') as token:
-            token.write(creds.to_json())
+            # 기존에 토큰이 없거나, 유효하지 않거나, refresh_token이 없는 경우
+            creds = get_new_credentials(credentials_path, SCOPES, token_path)
 
     # Google Calendar API 서비스 객체 생성
     service = build('calendar', 'v3', credentials=creds)
@@ -126,7 +157,7 @@ def create_event(service, calendar_id, company_name, deadline, description="자�
 
     # 이벤트 데이터 생성
     event = {
-        'summary': f"{company_name} 마감",
+        'summary': f"{company_name} {os.getenv('JOB_TITLE', '직무')} 마감", # '직무' 부분 추가
         'description': description,
         'start': {
             'dateTime': start_time.isoformat(),
@@ -135,6 +166,13 @@ def create_event(service, calendar_id, company_name, deadline, description="자�
         'end': {
             'dateTime': end_time.isoformat(),
             'timeZone': 'Asia/Seoul',
+        },
+        'reminders': { # 알림 추가
+            'useDefault': False,
+            'overrides': [
+                {'method': 'popup', 'minutes': 30}, # 30분 전 팝업
+                {'method': 'popup', 'minutes': 1440}, # 24시간 전 팝업
+            ],
         },
     }
 
@@ -158,6 +196,8 @@ def create_events(service, calendar_id, posts, ids, base_url):
         key = ids.pop()
         value = posts[key]
         if value["date"]:  # 날짜가 있는 경우에만 이벤트 생성
-            create_event(service, calendar_id, value["company_name"], value["date"], f'{value["subtitle"]}\n{base_url}/{key}')
+            # 시스템 엔지니어 직무는 summary에 반영하고 description은 원본 유지
+            job_title_description = f"{value['subtitle']}\n{base_url}/{key}"
+            create_event(service, calendar_id, value["company_name"], value["date"], job_title_description)
 
     print("✅ 모든 새 공고 일정 등록 완료!")
